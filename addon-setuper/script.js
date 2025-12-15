@@ -1,4 +1,3 @@
-// UUID v4
 function uuidv4() {
   const rnds = new Uint8Array(16);
   if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(rnds);
@@ -12,6 +11,13 @@ function uuidv4() {
 const el = id => document.getElementById(id);
 const previewEl = el('preview');
 const downloadBtn = el('download');
+const iconFileEl = el('iconFile');
+const iconPreviewImg = el('iconPreview');
+const iconHint = el('iconHint');
+
+let uploadedIconDataUrl = null; // 64x64 PNG dataURL (if uploaded)
+const MAX_ICON_BYTES = 2 * 1024 * 1024; // 2MB
+const ICON_SIZE = 64; // pack_icon size in pixels
 
 function buildManifest(opts) {
   const headerUUID = uuidv4();
@@ -52,9 +58,10 @@ function buildManifest(opts) {
 
 function placeholderPngDataUrl() {
   const c = document.createElement('canvas');
-  c.width = 64; c.height = 64;
+  c.width = ICON_SIZE; c.height = ICON_SIZE;
   const ctx = c.getContext('2d');
-  ctx.clearRect(0,0,64,64);
+  ctx.clearRect(0,0,ICON_SIZE,ICON_SIZE);
+  // optional: draw subtle grid or icon; keep transparent by default
   return c.toDataURL('image/png');
 }
 
@@ -73,30 +80,78 @@ function defaultSkinsJson() {
   };
 }
 
+function dataUrlToBase64(dataUrl) {
+  return dataUrl.split(',')[1];
+}
+
+// 画像を 64x64 PNG にリサイズして DataURL を返す（Promise）
+function resizeImageToPngDataUrl(fileOrDataUrl, size = ICON_SIZE) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // 画像のアスペクト比を保って中央にフィットさせる
+        const iw = img.width, ih = img.height;
+        const scale = Math.max(size / iw, size / ih);
+        const sw = iw * scale, sh = ih * scale;
+        const dx = (size - sw) / 2;
+        const dy = (size - sh) / 2;
+
+        // 背景を透明にして描画（PNG）
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(img, dx, dy, sw, sh);
+
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
+    // fileOrDataUrl が File の場合は FileReader で読み込む
+    if (fileOrDataUrl instanceof File) {
+      const reader = new FileReader();
+      reader.onload = () => { img.src = reader.result; };
+      reader.onerror = () => reject(new Error('ファイル読み込みエラー'));
+      reader.readAsDataURL(fileOrDataUrl);
+    } else {
+      img.src = fileOrDataUrl;
+    }
+  });
+}
+
 function createZip(manifest, opts) {
   const zip = new JSZip();
   const rootName = (opts.name || 'addon').replace(/[\\\/:*?"<>|]+/g, '_');
 
+  // icon base64: uploadedIconDataUrl (already PNG 64x64) or placeholder
+  const iconDataBase64 = uploadedIconDataUrl ? dataUrlToBase64(uploadedIconDataUrl) : dataUrlToBase64(placeholderPngDataUrl());
+
   if (opts.type === 'texture' || opts.type === 'scripttexture') {
     const rp = zip.folder(rootName + '/resource_pack');
     rp.file('manifest.json', JSON.stringify(manifest, null, 2));
-    rp.file('pack_icon.png', placeholderPngDataUrl().split(',')[1], {base64: true});
-    rp.folder('textures').file('example.png', placeholderPngDataUrl().split(',')[1], {base64: true});
+    rp.file('pack_icon.png', iconDataBase64, {base64: true});
+    rp.folder('textures').file('example.png', dataUrlToBase64(placeholderPngDataUrl()), {base64: true});
   }
 
   if (opts.type === 'behavior' || opts.type === 'scriptbehavior') {
     const bp = zip.folder(rootName + '/behavior_pack');
     bp.file('manifest.json', JSON.stringify(manifest, null, 2));
-    bp.file('pack_icon.png', placeholderPngDataUrl().split(',')[1], {base64: true});
+    bp.file('pack_icon.png', iconDataBase64, {base64: true});
     bp.folder('entities').file('example.entity.json', JSON.stringify({format_version:"1.10.0",minecraft: {description: {identifier: "example:entity"}}}, null, 2));
   }
 
   if (opts.type === 'skinpack') {
     const sp = zip.folder(rootName + '/skin_pack');
     sp.file('manifest.json', JSON.stringify(manifest, null, 2));
-    sp.file('pack_icon.png', placeholderPngDataUrl().split(',')[1], {base64: true});
+    sp.file('pack_icon.png', iconDataBase64, {base64: true});
     sp.file('skins.json', JSON.stringify(defaultSkinsJson(), null, 2));
-    sp.folder('textures').file('skin/example.png', placeholderPngDataUrl().split(',')[1], {base64: true});
+    sp.folder('textures').file('skin/example.png', dataUrlToBase64(placeholderPngDataUrl()), {base64: true});
   }
 
   if (manifest.modules.some(m => m.type === 'script')) {
@@ -133,14 +188,22 @@ function gatherOptions() {
   return { type, name, description, version, minEngineVersion, scriptEntry };
 }
 
-el('generate').addEventListener('click', () => {
-  const opts = gatherOptions();
-  const manifest = buildManifest(opts);
-  setPreview(JSON.stringify(manifest, null, 2));
-  window._lastZip = createZip(manifest, opts);
-  downloadBtn.disabled = false;
+// 生成ボタン
+el('generate').addEventListener('click', async () => {
+  try {
+    const opts = gatherOptions();
+    const manifest = buildManifest(opts);
+    setPreview(JSON.stringify(manifest, null, 2));
+    // create zip (uses uploadedIconDataUrl if set)
+    window._lastZip = createZip(manifest, opts);
+    downloadBtn.disabled = false;
+  } catch (e) {
+    setPreview('// エラー: ' + (e && e.message ? e.message : String(e)));
+    downloadBtn.disabled = true;
+  }
 });
 
+// ダウンロードボタン
 downloadBtn.addEventListener('click', async () => {
   if (!window._lastZip) return;
   const opts = gatherOptions();
@@ -156,6 +219,7 @@ downloadBtn.addEventListener('click', async () => {
   URL.revokeObjectURL(a.href);
 });
 
+// リセット
 el('reset').addEventListener('click', () => {
   el('packType').value = 'texture';
   el('name').value = 'My Addon';
@@ -167,9 +231,49 @@ el('reset').addEventListener('click', () => {
   el('engMinor').value = 20;
   el('engPatch').value = 0;
   el('scriptEntry').value = 'scripts/main.js';
+  iconFileEl.value = '';
+  uploadedIconDataUrl = null;
+  iconPreviewImg.src = '';
+  iconHint.textContent = 'PNG/JPEG 最大 2MB。アップロードすると 64×64 PNG に変換されます。';
   setPreview('未生成');
   downloadBtn.disabled = true;
   window._lastZip = null;
+});
+
+// アイコンアップロード処理（自動リサイズして PNG に変換）
+iconFileEl.addEventListener('change', async () => {
+  const file = iconFileEl.files && iconFileEl.files[0];
+  if (!file) {
+    uploadedIconDataUrl = null;
+    iconPreviewImg.src = '';
+    iconHint.textContent = 'PNG/JPEG 最大 2MB。アップロードすると 64×64 PNG に変換されます。';
+    return;
+  }
+
+  if (!/^image\/(png|jpeg)$/.test(file.type)) {
+    iconHint.textContent = 'PNG または JPEG のみ対応';
+    iconFileEl.value = '';
+    return;
+  }
+
+  if (file.size > MAX_ICON_BYTES) {
+    iconHint.textContent = 'ファイルが大きすぎます（最大 2MB）';
+    iconFileEl.value = '';
+    return;
+  }
+
+  try {
+    // リサイズして PNG DataURL を取得
+    const resizedDataUrl = await resizeImageToPngDataUrl(file, ICON_SIZE);
+    uploadedIconDataUrl = resizedDataUrl;
+    iconPreviewImg.src = uploadedIconDataUrl;
+    iconHint.textContent = 'アップロード済み（64×64 PNG に変換）';
+  } catch (e) {
+    uploadedIconDataUrl = null;
+    iconPreviewImg.src = '';
+    iconHint.textContent = '画像処理エラー';
+    console.error(e);
+  }
 });
 
 // 初期化
