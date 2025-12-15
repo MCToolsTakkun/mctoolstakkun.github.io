@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Minecraft Bedrock Manifest Generator</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --panel: #171a2b;
+      --accent: #6aa9ff;
+      --text: #e6eaf2;
+      --muted: #9aa3b2;
+      --border: #2a2f46;
+      --error: #ff6b6b;
+      --ok: #39d98a;
+    }
+    html, body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .wrap { max-width: 980px; margin: 28px auto; padding: 0 16px; }
+    h1 { font-size: 1.6rem; margin: 0 0 12px; }
+    p.subtitle { color: var(--muted); margin: 0 0 24px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .panel h2 { font-size: 1.2rem; margin: 0 0 12px; }
+    label { display: block; font-size: 0.9rem; margin: 12px 0 6px; color: var(--muted); }
+    input[type="text"], input[type="number"], select {
+      width: 100%; padding: 10px 12px; background: #111426; border: 1px solid var(--border);
+      color: var(--text); border-radius: 10px; outline: none;
+    }
+    input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--accent); }
+    .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .uuid-row { display: flex; gap: 8px; }
+    .uuid-row input { flex: 1; }
+    button {
+      background: var(--accent); color: #07122d; border: none; border-radius: 10px;
+      padding: 10px 14px; font-weight: 600; cursor: pointer;
+    }
+    button.secondary { background: #263253; color: var(--text); }
+    button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .actions { display: flex; gap: 10px; margin-top: 14px; }
+    .kv { display: grid; grid-template-columns: 160px 1fr; gap: 8px; align-items: center; }
+    .hint { font-size: 0.8rem; color: var(--muted); }
+    .code { background: #0c1021; border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow: auto; white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.95rem; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 0.75rem; border: 1px solid var(--border); color: var(--muted); }
+    .note { margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+    .ok { color: var(--ok); }
+    .err { color: var(--error); }
+    @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Manifest Generator for Minecraft Bedrock</h1>
+    <p class="subtitle">GitHub Pages対応。選択したタイプに合わせて <code>manifest.json</code> を生成します。</p>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>基本設定</h2>
+        <label>パックタイプ</label>
+        <select id="packType">
+          <option value="texture">Texture (Resource Pack)</option>
+          <option value="behavior">Behavior (Behavior Pack)</option>
+          <option value="skinpack">Skin Pack</option>
+          <option value="scripttexture">Script Texture (Resource + Script)</option>
+          <option value="scriptbehavior">Script Behavior (Behavior + Script)</option>
+        </select>
+
+        <label>パック名</label>
+        <input type="text" id="name" placeholder="My Pack" />
+
+        <label>説明</label>
+        <input type="text" id="description" placeholder="Short description" />
+
+        <div class="row">
+          <div>
+            <label>バージョン (major)</label>
+            <input type="number" id="verMajor" min="0" value="1" />
+          </div>
+          <div>
+            <label>バージョン (minor)</label>
+            <input type="number" id="verMinor" min="0" value="0" />
+          </div>
+          <div>
+            <label>バージョン (patch)</label>
+            <input type="number" id="verPatch" min="0" value="0" />
+          </div>
+        </div>
+
+        <label>ヘッダーUUID</label>
+        <div class="uuid-row">
+          <input type="text" id="headerUUID" placeholder="00000000-0000-0000-0000-000000000000" />
+          <button class="secondary" id="regenHeaderUUID">再生成</button>
+        </div>
+
+        <label>Min Engine Version (任意)</label>
+        <div class="row">
+          <input type="number" id="engMajor" min="1" value="1" />
+          <input type="number" id="engMinor" min="0" value="20" />
+          <input type="number" id="engPatch" min="0" value="0" />
+        </div>
+        <p class="hint">Skin Pack と Script では設定推奨。形は [major, minor, patch]。</p>
+      </div>
+
+      <div class="panel">
+        <h2>モジュール設定</h2>
+
+        <div id="moduleList"></div>
+
+        <div class="actions">
+          <button id="addModule">モジュール追加</button>
+          <button class="ghost" id="resetModules">初期化</button>
+        </div>
+
+        <p class="note">Scriptモジュール例: language=javascript, entry=scripts/main.js</p>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h2>出力</h2>
+      <div class="actions">
+        <button id="generate">manifest.json を生成</button>
+        <button class="secondary" id="download" disabled>ダウンロード</button>
+        <span id="status" class="badge">待機中</span>
+      </div>
+      <div id="output" class="code" style="margin-top:12px;"></div>
+      <p class="note">生成された JSON は Bedrock の Add-on 仕様に合わせた一般的なフィールド構成です。</p>
+    </div>
+  </div>
+
+  <script>
+    // UUID v4 generator
+    function uuidv4() {
+      // RFC4122 v4 using crypto if available
+      const rnds = new Uint8Array(16);
+      if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(rnds);
+      } else {
+        for (let i = 0; i < 16; i++) rnds[i] = Math.floor(Math.random() * 256);
+      }
+      rnds[6] = (rnds[6] & 0x0f) | 0x40; // version
+      rnds[8] = (rnds[8] & 0x3f) | 0x80; // variant
+
+      const hex = [...rnds].map(b => b.toString(16).padStart(2, '0'));
+      return (
+        hex[0] + hex[1] + hex[2] + hex[3] + "-" +
+        hex[4] + hex[5] + "-" +
+        hex[6] + hex[7] + "-" +
+        hex[8] + hex[9] + "-" +
+        hex[10] + hex[11] + hex[12] + hex[13] + hex[14] + hex[15]
+      );
+    }
+
+    // DOM helpers
+    const el = id => document.getElementById(id);
+    const statusEl = el('status');
+    const outputEl = el('output');
+    const downloadBtn = el('download');
+    const addModuleBtn = el('addModule');
+    const resetModulesBtn = el('resetModules');
+    const packTypeEl = el('packType');
+
+    // Module list state
+    const modules = [];
+
+    function moduleTypeDefault(packType) {
+      switch (packType) {
+        case 'texture': return 'resources';
+        case 'behavior': return 'data';
+        case 'skinpack': return 'skin_pack';
+        case 'scripttexture': return 'script';
+        case 'scriptbehavior': return 'script';
+        default: return 'data';
+      }
+    }
+
+    function createModuleUI(mod) {
+      const container = document.createElement('div');
+      container.className = 'panel';
+      container.style.padding = '12px';
+      container.style.marginTop = '10px';
+
+      const title = document.createElement('div');
+      title.innerHTML = '<span class="badge">Module</span>';
+      container.appendChild(title);
+
+      // type
+      const typeLabel = document.createElement('label');
+      typeLabel.textContent = 'type';
+      container.appendChild(typeLabel);
+
+      const typeSelect = document.createElement('select');
+      ['resources', 'data', 'skin_pack', 'script'].forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t; opt.textContent = t;
+        typeSelect.appendChild(opt);
+      });
+      typeSelect.value = mod.type;
+      container.appendChild(typeSelect);
+
+      // uuid row
+      const uuidLabel = document.createElement('label');
+      uuidLabel.textContent = 'module UUID';
+      container.appendChild(uuidLabel);
+
+      const uuidRow = document.createElement('div');
+      uuidRow.className = 'uuid-row';
+      const uuidInput = document.createElement('input');
+      uuidInput.type = 'text';
+      uuidInput.placeholder = '00000000-0000-0000-0000-000000000000';
+      uuidInput.value = mod.uuid;
+      const regenBtn = document.createElement('button');
+      regenBtn.className = 'secondary';
+      regenBtn.textContent = '再生成';
+      uuidRow.appendChild(uuidInput);
+      uuidRow.appendChild(regenBtn);
+      container.appendChild(uuidRow);
+
+      // version
+      const verLabel = document.createElement('label');
+      verLabel.textContent = 'version [major, minor, patch]';
+      container.appendChild(verLabel);
+
+      const verRow = document.createElement('div');
+      verRow.className = 'row';
+      const vMaj = document.createElement('input'); vMaj.type = 'number'; vMaj.min = 0; vMaj.value = mod.version[0];
+      const vMin = document.createElement('input'); vMin.type = 'number'; vMin.min = 0; vMin.value = mod.version[1];
+      const vPat = document.createElement('input'); vPat.type = 'number'; vPat.min = 0; vPat.value = mod.version[2];
+      verRow.appendChild(vMaj); verRow.appendChild(vMin); verRow.appendChild(vPat);
+      container.appendChild(verRow);
+
+      // script fields (conditional)
+      const scriptWrap = document.createElement('div');
+      const scriptLangLabel = document.createElement('label'); scriptLangLabel.textContent = 'script.language (scriptのみ)';
+      const scriptLang = document.createElement('input'); scriptLang.type = 'text'; scriptLang.placeholder = 'javascript';
+      const scriptEntryLabel = document.createElement('label'); scriptEntryLabel.textContent = 'script.entry (scriptのみ)';
+      const scriptEntry = document.createElement('input'); scriptEntry.type = 'text'; scriptEntry.placeholder = 'scripts/main.js';
+      scriptWrap.appendChild(scriptLangLabel); scriptWrap.appendChild(scriptLang);
+      scriptWrap.appendChild(scriptEntryLabel); scriptWrap.appendChild(scriptEntry);
+      container.appendChild(scriptWrap);
+
+      function toggleScriptFields() {
+        const isScript = typeSelect.value === 'script';
+        scriptLang.style.display = scriptEntry.style.display = isScript ? 'block' : 'none';
+        scriptLangLabel.style.display = scriptEntryLabel.style.display = isScript ? 'block' : 'none';
+      }
+      toggleScriptFields();
+
+      // actions
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'ghost';
+      removeBtn.textContent = '削除';
+      actions.appendChild(removeBtn);
+      container.appendChild(actions);
+
+      // Bindings
+      typeSelect.addEventListener('change', () => {
+        mod.type = typeSelect.value;
+        toggleScriptFields();
+      });
+      regenBtn.addEventListener('click', () => {
+        mod.uuid = uuidv4();
+        uuidInput.value = mod.uuid;
+      });
+      uuidInput.addEventListener('input', () => { mod.uuid = uuidInput.value.trim(); });
+      vMaj.addEventListener('input', () => { mod.version[0] = parseInt(vMaj.value || '0', 10); });
+      vMin.addEventListener('input', () => { mod.version[1] = parseInt(vMin.value || '0', 10); });
+      vPat.addEventListener('input', () => { mod.version[2] = parseInt(vPat.value || '0', 10); });
+      scriptLang.addEventListener('input', () => { mod.script = mod.script || {}; mod.script.language = scriptLang.value.trim(); });
+      scriptEntry.addEventListener('input', () => { mod.script = mod.script || {}; mod.script.entry = scriptEntry.value.trim(); });
+      removeBtn.addEventListener('click', () => {
+        const idx = modules.indexOf(mod);
+        if (idx >= 0) modules.splice(idx, 1);
+        container.remove();
+      });
+
+      // Initialize script fields if present
+      if (mod.script) {
+        scriptLang.value = mod.script.language || '';
+        scriptEntry.value = mod.script.entry || '';
+      }
+
+      el('moduleList').appendChild(container);
+    }
+
+    function addDefaultModulesForType(type) {
+      modules.length = 0;
+      el('moduleList').innerHTML = '';
+
+      // Base module by type
+      const baseModule = {
+        type: moduleTypeDefault(type),
+        uuid: uuidv4(),
+        version: [1,0,0]
+      };
+
+      // Script hybrid packs add script module too
+      if (type === 'scripttexture') {
+        createModuleUI({ ...baseModule }); // resources
+        createModuleUI({
+          type: 'script',
+          uuid: uuidv4(),
+          version: [1,0,0],
+          script: { language: 'javascript', entry: 'scripts/main.js' }
+        });
+        modules.push(...Array.from(el('moduleList').querySelectorAll('.panel')).map(() => null)); // placeholder (UI holds state)
+      } else if (type === 'scriptbehavior') {
+        baseModule.type = 'data';
+        createModuleUI({ ...baseModule }); // data
+        createModuleUI({
+          type: 'script',
+          uuid: uuidv4(),
+          version: [1,0,0],
+          script: { language: 'javascript', entry: 'scripts/main.js' }
+        });
+        modules.push(...Array.from(el('moduleList').querySelectorAll('.panel')).map(() => null));
+      } else {
+        createModuleUI({ ...baseModule });
+        modules.push(null);
+      }
+      // Sync modules from UI panels into actual state when generating
+    }
+
+    // Initialize defaults
+    function ensureHeaderUUID() {
+      const val = el('headerUUID').value.trim();
+      if (!val) el('headerUUID').value = uuidv4();
+    }
+    ensureHeaderUUID();
+    addDefaultModulesForType(packTypeEl.value);
+
+    // Events
+    packTypeEl.addEventListener('change', () => {
+      addDefaultModulesForType(packTypeEl.value);
+      setStatus('タイプ変更: モジュール初期化', 'ok');
+    });
+    el('regenHeaderUUID').addEventListener('click', () => {
+      el('headerUUID').value = uuidv4();
+      setStatus('ヘッダーUUIDを再生成', 'ok');
+    });
+
+    addModuleBtn.addEventListener('click', () => {
+      const mod = {
+        type: 'data',
+        uuid: uuidv4(),
+        version: [1,0,0]
+      };
+      createModuleUI(mod);
+      setStatus('モジュール追加', 'ok');
+    });
+
+    resetModulesBtn.addEventListener('click', () => {
+      addDefaultModulesForType(packTypeEl.value);
+      setStatus('モジュール初期化', 'ok');
+    });
+
+    function setStatus(text, kind='') {
+      statusEl.textContent = text;
+      statusEl.className = 'badge ' + (kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : '');
+    }
+
+    function readModulesFromUI() {
+      const list = [];
+      const panels = Array.from(el('moduleList').children);
+      for (const panel of panels) {
+        const selects = panel.getElementsByTagName('select');
+        const inputs = panel.getElementsByTagName('input');
+        const type = selects[0].value;
+        const uuid = inputs[0].value.trim();
+        const vMaj = parseInt(inputs[1].value || '1', 10);
+        const vMin = parseInt(inputs[2].value || '0', 10);
+        const vPat = parseInt(inputs[3].value || '0', 10);
+
+        const mod = { type, uuid, version: [vMaj, vMin, vPat] };
+
+        // script fields exist after the first 4 inputs
+        if (type === 'script') {
+          const language = (inputs[4]?.value || '').trim();
+          const entry = (inputs[5]?.value || '').trim();
+          if (language) {
+            mod.language = language;
+          }
+          if (entry) {
+            mod.entry = entry;
+          }
+        }
+        list.push(mod);
+      }
+      return list;
+    }
+
+    function generateManifest() {
+      const type = packTypeEl.value;
+      const name = el('name').value.trim() || 'My Pack';
+      const description = el('description').value.trim() || '';
+      const headerUUID = el('headerUUID').value.trim() || uuidv4();
+      const version = [
+        parseInt(el('verMajor').value || '1', 10),
+        parseInt(el('verMinor').value || '0', 10),
+        parseInt(el('verPatch').value || '0', 10),
+      ];
+      const minEngineVersion = [
+        parseInt(el('engMajor').value || '1', 10),
+        parseInt(el('engMinor').value || '20', 10),
+        parseInt(el('engPatch').value || '0', 10),
+      ];
+
+      // Header base
+      const manifest = {
+        format_version: 2,
+        header: {
+          name,
+          description,
+          uuid: headerUUID,
+          version,
+          min_engine_version: minEngineVersion
+        },
+        modules: []
+      };
+
+      // Modules
+      const uiModules = readModulesFromUI();
+      for (const m of uiModules) {
+        const module = {
+          type: m.type,
+          uuid: m.uuid || uuidv4(),
+          version: m.version
+        };
+        if (m.type === 'script') {
+          // Script API fields (post-1.20) typically include language + entry
+          if (m.language) module.language = m.language;
+          if (m.entry) module.entry = m.entry;
+        }
+        manifest.modules.push(module);
+      }
+
+      // Optional dependencies (example for script API)
+      if (uiModules.some(m => m.type === 'script')) {
+        manifest.dependencies = [
+          { module_name: "minecraft", version: minEngineVersion }
+        ];
+        // Some projects also include capabilities; keep minimal and user-editable:
+        manifest.capabilities = ["script_eval"];
+      }
+
+      // Skin Pack: typical fields often do not use modules beyond type "skin_pack"
+      // This generator keeps a consistent structure; users can further customize as needed.
+
+      const json = JSON.stringify(manifest, null, 2);
+      outputEl.textContent = json;
+      downloadBtn.disabled = false;
+      setStatus('生成完了', 'ok');
+      return { json, filename: 'manifest.json' };
+    }
+
+    el('generate').addEventListener('click', () => {
+      try {
+        generateManifest();
+      } catch (e) {
+        setStatus('エラー: ' + e.message, 'err');
+        downloadBtn.disabled = true;
+      }
+    });
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      const content = outputEl.textContent.trim();
+      if (!content) {
+        setStatus('先に生成してください', 'err');
+        return;
+      }
+      downloadText('manifest.json', content);
+      setStatus('ダウンロード完了', 'ok');
+    });
+  </script>
+</body>
+</html>
