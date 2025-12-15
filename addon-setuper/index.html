@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bedrock Addon Setuper</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Bedrock Addon Setuper</h1>
+    <p class="lead">統合版アドオンの基本フォルダとファイルをブラウザで生成して ZIP ダウンロードします。</p>
+
+    <div class="grid">
+      <div class="panel">
+        <label>パックタイプ</label>
+        <select id="packType">
+          <option value="texture">Texture (Resource)</option>
+          <option value="behavior">Behavior</option>
+          <option value="skinpack">Skin Pack</option>
+          <option value="scripttexture">Script Texture</option>
+          <option value="scriptbehavior">Script Behavior</option>
+        </select>
+
+        <label>パック名</label>
+        <input type="text" id="name" placeholder="My Addon" />
+
+        <label>説明</label>
+        <input type="text" id="description" placeholder="Short description" />
+
+        <div class="row">
+          <div style="flex:1">
+            <label>バージョン major</label>
+            <input type="number" id="verMajor" min="0" value="1" />
+          </div>
+          <div style="flex:1">
+            <label>minor</label>
+            <input type="number" id="verMinor" min="0" value="0" />
+          </div>
+          <div style="flex:1">
+            <label>patch</label>
+            <input type="number" id="verPatch" min="0" value="0" />
+          </div>
+        </div>
+
+        <label>Min Engine Version</label>
+        <div class="row">
+          <input type="number" id="engMajor" min="1" value="1" />
+          <input type="number" id="engMinor" min="0" value="20" />
+          <input type="number" id="engPatch" min="0" value="0" />
+        </div>
+
+        <label>Script entry path</label>
+        <input type="text" id="scriptEntry" placeholder="scripts/main.js" />
+
+        <div class="actions">
+          <button id="generate">生成</button>
+          <button class="ghost" id="download" disabled>ZIP ダウンロード</button>
+          <button class="ghost" id="reset">リセット</button>
+        </div>
+
+        <p class="hint">生成される ZIP はブラウザ内で作成されます。必要に応じて生成後にローカルで編集してください。</p>
+      </div>
+
+      <div class="panel">
+        <h3>プレビュー</h3>
+        <div id="preview" class="code">未生成</div>
+        <div class="hint">生成内容を確認してからダウンロードしてください。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSZip CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
