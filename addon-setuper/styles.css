@@ -13,7 +13,7 @@ h1{margin:0 0 8px;font-size:1.4rem}
 .grid{display:grid;grid-template-columns:1fr 360px;gap:16px}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
 label{display:block;color:var(--muted);font-size:0.9rem;margin-top:10px}
-input[type="text"], input[type="number"], select, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#071025;color:var(--text);box-sizing:border-box}
+input[type="text"], input[type="number"], select, textarea, input[type="file"]{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#071025;color:var(--text);box-sizing:border-box}
 textarea{min-height:100px;resize:vertical}
 .row{display:flex;gap:8px}
 button{background:var(--accent);color:#042033;border:none;padding:10px 12px;border-radius:8px;font-weight:600;cursor:pointer}
@@ -21,4 +21,8 @@ button.ghost{background:transparent;border:1px solid var(--border);color:var(--t
 .actions{display:flex;gap:8px;margin-top:12px;align-items:center}
 .code{background:#061026;border:1px solid var(--border);padding:12px;border-radius:8px;white-space:pre;overflow:auto;font-family:ui-monospace,Menlo,Monaco,Consolas,monospace}
 .hint{color:var(--muted);font-size:0.9rem;margin-top:8px}
+.icon-preview{display:flex;align-items:center;gap:12px;margin-top:8px}
+.icon-preview-inner{width:64px;height:64px;border-radius:8px;border:1px solid var(--border);background:#071025;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.icon-preview-inner img{max-width:100%;max-height:100%;display:block}
+.icon-hint{color:var(--muted);font-size:0.85rem}
 @media(max-width:880px){.grid{grid-template-columns:1fr}}
