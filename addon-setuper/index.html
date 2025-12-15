@@ -9,7 +9,7 @@
 <body>
   <div class="wrap">
     <h1>Bedrock Addon Setuper</h1>
-    <p class="lead">統合版アドオンの基本フォルダとファイルをブラウザで生成して ZIP ダウンロードします。</p>
+    <p class="lead">統合版アドオンを生成して ZIP ダウンロードします。pack_icon のアップロードと自動リサイズ（64×64 PNG）に対応。</p>
 
     <div class="grid">
       <div class="panel">
@@ -52,6 +52,15 @@
 
         <label>Script entry path</label>
         <input type="text" id="scriptEntry" placeholder="scripts/main.js" />
+
+        <label>pack_icon アップロード（PNG/JPEG, 自動リサイズ 64×64）</label>
+        <input type="file" id="iconFile" accept="image/png,image/jpeg" />
+        <div class="icon-preview" id="iconPreviewWrap">
+          <div class="icon-preview-inner">
+            <img id="iconPreview" alt="pack icon preview" />
+          </div>
+          <div class="icon-hint" id="iconHint">PNG/JPEG 最大 2MB。アップロードすると 64×64 PNG に変換されます。</div>
+        </div>
 
         <div class="actions">
           <button id="generate">生成</button>
