@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>pack.mcmeta Generator</title>
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f1724; --accent:#6fb8ff; --text:#e8eef8; --muted:#9fb0c8; --border:#223047;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+    .wrap{max-width:920px;margin:28px auto;padding:18px;}
+    h1{margin:0 0 8px;font-size:1.5rem;}
+    p.lead{margin:0 0 18px;color:var(--muted);}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:16px;}
+    .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
+    label{display:block;color:var(--muted);font-size:0.9rem;margin-top:10px;}
+    input[type="text"], textarea, select, input[type="number"]{
+      width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#071025;color:var(--text);box-sizing:border-box;
+    }
+    textarea{min-height:120px;resize:vertical;}
+    .row{display:flex;gap:8px;}
+    button{background:var(--accent);color:#042033;border:none;padding:10px 12px;border-radius:8px;font-weight:600;cursor:pointer;}
+    button.ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+    .actions{display:flex;gap:8px;margin-top:12px;align-items:center;}
+    .code{background:#061026;border:1px solid var(--border);padding:12px;border-radius:8px;white-space:pre;overflow:auto;font-family:ui-monospace,Menlo,Monaco,Consolas,monospace;}
+    .hint{color:var(--muted);font-size:0.9rem;margin-top:8px;}
+    @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>pack.mcmeta Generator</h1>
+    <p class="lead">Minecraft Java Edition 用の <code>pack.mcmeta</code> をブラウザで生成してダウンロードします。</p>
+
+    <div class="grid">
+      <div class="panel">
+        <label>タイプ</label>
+        <select id="packKind">
+          <option value="resource">Resource Pack</option>
+          <option value="data">Data Pack</option>
+        </select>
+
+        <label>pack description</label>
+        <input type="text" id="description" placeholder="Example: My awesome resource pack" />
+
+        <label>pack_format</label>
+        <div class="row" style="margin-top:6px;">
+          <select id="presetFormat" style="flex:1;">
+            <option value="">プリセットを選択（任意）</option>
+            <option value="1">1 (古いバージョン)</option>
+            <option value="6">6 (1.13 - 1.14 目安)</option>
+            <option value="7">7 (1.15 - 1.16 目安)</option>
+            <option value="8">8 (1.17 - 1.18 目安)</option>
+            <option value="9">9 (1.19 目安)</option>
+            <option value="10">10 (1.20 目安)</option>
+            <option value="11">11 (1.21 目安)</option>
+          </select>
+          <input type="number" id="packFormat" min="1" placeholder="pack_format" style="width:120px;" />
+        </div>
+
+        <label>pack name (任意)</label>
+        <input type="text" id="packName" placeholder="Pack name (optional)" />
+
+        <label>追加メタ（JSON）</label>
+        <textarea id="extraJson" placeholder='{"custom": "value"}'></textarea>
+        <div class="hint">追加のメタ情報を JSON 形式で追記できます（空欄可）。無効な JSON は無視されます。</div>
+
+        <div class="actions">
+          <button id="generate">生成</button>
+          <button class="ghost" id="download" disabled>ダウンロード</button>
+          <button class="ghost" id="reset">リセット</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-top:0;margin-bottom:8px;">出力プレビュー</h3>
+        <div id="output" class="code">{ "pack": { "pack_format": 0, "description": "" } }</div>
+        <div class="hint" style="margin-top:10px;">生成された JSON を確認してからダウンロードしてください。pack_format は Minecraft のバージョンに合わせて設定してください。</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const el = id => document.getElementById(id);
+    const outputEl = el('output');
+    const generateBtn = el('generate');
+    const downloadBtn = el('download');
+    const resetBtn = el('reset');
+    const preset = el('presetFormat');
+
+    // 初期値
+    function resetForm() {
+      el('packKind').value = 'resource';
+      el('description').value = 'A Minecraft pack';
+      el('packFormat').value = '';
+      el('packName').value = '';
+      el('extraJson').value = '';
+      outputEl.textContent = JSON.stringify({ pack: { pack_format: 0, description: "" } }, null, 2);
+      downloadBtn.disabled = true;
+    }
+    resetForm();
+
+    // プリセット選択で pack_format を埋める
+    preset.addEventListener('change', () => {
+      const v = preset.value;
+      if (v) el('packFormat').value = v;
+    });
+
+    function safeParseJson(text) {
+      try {
+        if (!text.trim()) return null;
+        return JSON.parse(text);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function buildPackMcmeta() {
+      const kind = el('packKind').value;
+      const desc = el('description').value.trim() || el('packName').value.trim() || 'Pack';
+      const pf = parseInt(el('packFormat').value || '0', 10);
+      const extra = safeParseJson(el('extraJson').value || '');
+
+      const pack = {
+        pack_format: Number.isFinite(pf) ? pf : 0,
+        description: desc
+      };
+
+      // 名前がある場合は description に含めるか、extra に name を入れる
+      if (el('packName').value.trim()) {
+        // extra に name を入れる（ユーザーが明示的に名前を指定した場合）
+        if (!extra) {
+          // create a shallow extra object
+          // but do not overwrite pack fields
+          // we'll attach under "meta" to avoid breaking standard
+          // user can edit later
+        }
+      }
+
+      const root = { pack };
+
+      if (extra) {
+        // merge extra keys into root, but avoid overwriting 'pack'
+        for (const k of Object.keys(extra)) {
+          if (k === 'pack') continue;
+          root[k] = extra[k];
+        }
+      }
+
+      return root;
+    }
+
+    function setOutput(obj) {
+      outputEl.textContent = JSON.stringify(obj, null, 2);
+    }
+
+    generateBtn.addEventListener('click', () => {
+      try {
+        const obj = buildPackMcmeta();
+        setOutput(obj);
+        downloadBtn.disabled = false;
+      } catch (e) {
+        outputEl.textContent = '// エラー: ' + e.message;
+        downloadBtn.disabled = true;
+      }
+    });
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      const content = outputEl.textContent.trim();
+      if (!content) return;
+      downloadText('pack.mcmeta', content);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      resetForm();
+    });
+
+    // 初期プレビュー
+    setOutput({ pack: { pack_format: 0, description: "" } });
+  </script>
+</body>
+</html>
