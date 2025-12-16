@@ -3,64 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>マイクラサーバー ステータスチェッカー</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 20px;
-        }
-        #status {
-            margin-top: 20px;
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-    </style>
+    <meta name="description" content="マインクラフトサーバーステータスチェッカー">
+    <title>マイクラサーバーステータスチェッカー</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>マイクラサーバー ステータスチェッカー</h1>
-    <label for="server-type">サーバータイプ：</label>
-    <select id="server-type">
-        <option value="java">Java版</option>
-        <option value="bedrock">統合版</option>
-    </select>
-    <br>
-    <label for="server-ip">サーバーIPアドレス：</label>
-    <input type="text" id="server-ip" placeholder="例: example.com">
-    <br>
-    <button onclick="checkStatus()">チェック</button>
-    <div id="status"></div>
-
-    <script>
-        async function checkStatus() {
-            const serverType = document.getElementById('server-type').value;
-            const serverIp = document.getElementById('server-ip').value;
-            const statusDiv = document.getElementById('status');
-
-            // ステータスをリセット
-            statusDiv.innerHTML = 'ステータスをチェック中...';
-
-            let url;
-            if (serverType === 'java') {
-                url = `https://api.mcsrvstat.us/2/${serverIp}`;
-            } else {
-                url = `https://api.mcsrvstat.us/bedrock/2/${serverIp}`;
-            }
-
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data.online) {
-                    statusDiv.innerHTML = `サーバーはオンラインです! プレイヤー数: ${data.players.online}/${data.players.max}`;
-                } else {
-                    statusDiv.innerHTML = 'サーバーはオフラインです。';
-                }
-            } catch (error) {
-                statusDiv.innerHTML = 'エラーが発生しました。正しいIPかサーバータイプを確認してください。';
-            }
-        }
-    </script>
+    <div class="container">
+        <h1>マインクラフトサーバーステータスチェッカー</h1>
+        <div class="server-select">
+            <label for="serverType">サーバータイプ:</label>
+            <select id="serverType">
+                <option value="java">Java版</option>
+                <option value="bedrock">統合版</option>
+            </select>
+        </div>
+        <div class="server-input">
+            <label for="serverAddress">サーバーアドレス:</label>
+            <input type="text" id="serverAddress" placeholder="例: example.com:25565">
+        </div>
+        <button id="checkStatus">ステータス確認</button>
+        <div class="status-display">
+            <h2>サーバーステータス</h2>
+            <div id="status"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
