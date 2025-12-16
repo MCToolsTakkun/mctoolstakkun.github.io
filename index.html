@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>統合版アドオンのScript Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-top: 10px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>統合版アドオンのScript Generator</h1>
+    <p>下のテキストエリアにスクリプトを入力してください。生成されたコードをクリックするとコピーできます。</p>
+    <textarea id="scriptInput" placeholder="スクリプトをここに入力..."></textarea>
+    <button id="generateBtn">生成</button>
+    <h2>生成されたスクリプト:</h2>
+    <textarea id="scriptOutput" readonly></textarea>
+    <script>
+        // ボタンがクリックされたときにスクリプト生成を行う
+        document.getElementById('generateBtn').onclick = function() {
+            // 入力を取得
+            var input = document.getElementById('scriptInput').value;
+            // 生成されたスクリプトを出力エリアにセット
+            document.getElementById('scriptOutput').value = '/* 生成されたスクリプト */\n' + input;
+            // 出力エリアを選択してコピー
+            document.getElementById('scriptOutput').select();
+            document.execCommand('copy');
+            alert('スクリプトがクリップボードにコピーされました！');
+        };
+    </script>
+</body>
+</html>
