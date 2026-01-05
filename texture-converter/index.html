@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Minecraft Texture Converter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>🧱 Minecraft Texture Converter</h1>
+
+  <select id="mode">
+    <option value="java-to-bedrock">Java → 統合版</option>
+    <option value="bedrock-to-java">統合版 → Java</option>
+  </select>
+
+  <input type="file" id="file" accept=".zip">
+  <button onclick="convert()">変換</button>
+
+  <p id="log"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
